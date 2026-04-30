@@ -2,21 +2,9 @@
 
 > **Concept-Level Guidance for Unconditional Diffusion Models via H-Space Patching**
 
-This repository implements the full research pipeline for **Adversarial Diffusion Guidance** — a method that enables semantic control over unconditional diffusion models (DDPMs) by extracting concept-specific direction vectors from the model's internal h-space (the bottleneck activation of the U-Net architecture) and applying them as targeted perturbations during the reverse generative process.
+This repository implements the full research pipeline for **Unconditional Diffusion Enhancement** — a method that enables semantic control over unconditional diffusion models (DDPMs) by extracting concept-specific direction vectors from the model's internal h-space (the bottleneck activation of the U-Net architecture) and applying them as targeted perturbations during the reverse generative process.
 
 Unlike classifier-free guidance (CFG), which requires conditional training, ADG operates entirely **post-hoc** on frozen, pre-trained unconditional models. The approach extracts a *Difference of Means (DoM)* vector that represents a semantic concept (e.g., "sharp vs. blur," "smiling vs. not smiling") and applies it as a directional patch to the mid-block activation during inference, enabling attribute-specific image manipulation without retraining.
-
----
-
-## Key Contributions
-
-1. **H-Space Concept Extraction** — Streaming DoM computation over large datasets to extract semantically meaningful direction vectors.
-2. **H-Space CFG for Unconditional Models** — A dual-pass guidance framework that mimics conditional guidance using only unconditional models.
-3. **Taylor Decomposition Analysis** — Formal characterization of when and why linearization of the U-Net decoder fails under h-space patching.
-4. **CKA-Based Representational Analysis** — Centered Kernel Alignment to measure representational similarity across layers, timesteps, and guidance scales.
-5. **Comprehensive Evaluation Suite** — FID, CLIP, LPIPS, BRISQUE, NIQE, and ArcFace-based identity preservation metrics.
-
----
 
 ## Repository Structure
 
