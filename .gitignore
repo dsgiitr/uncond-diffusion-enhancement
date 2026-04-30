@@ -1,0 +1,41 @@
+# ════════════════════════════════════════════════════════════════════
+# DENY-BY-DEFAULT: Ignore everything, then whitelist only what we need
+# ════════════════════════════════════════════════════════════════════
+
+# Ignore EVERYTHING by default
+*
+
+# ── Allow Python source files recursively ───────────────────────────
+!*.py
+!**/*.py
+
+# ── Allow essential root files ──────────────────────────────────────
+!README.md
+!requirements.txt
+!.gitignore
+
+# ── Allow directory traversal (required for recursive ** matching) ──
+!*/
+
+# ════════════════════════════════════════════════════════════════════
+# ALWAYS IGNORE (even if whitelisted above)
+# ════════════════════════════════════════════════════════════════════
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Version control internals
+.git/
+
+# IDE / editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db

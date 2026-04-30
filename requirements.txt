@@ -1,0 +1,30 @@
+# Core deep learning
+torch>=2.11.0
+torchvision>=0.26.0
+
+# Diffusion pipeline
+diffusers>=0.37.1
+accelerate>=1.13.0
+safetensors>=0.7.0
+huggingface_hub>=1.10.1
+
+# Image processing
+pillow>=12.2.0
+opencv-python>=4.13.0
+
+# Scientific / ML
+numpy>=2.4.4
+scipy>=1.17.1
+scikit-learn>=1.8.0
+scikit-image>=0.26.0
+
+# Image quality metrics
+pyiqa>=0.1.15
+
+# Data
+datasets>=4.8.4
+lmdb>=1.6.2
+
+# Visualization
+matplotlib>=3.10.8
+tqdm>=4.67.3
