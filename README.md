@@ -1,9 +1,8 @@
 # Unconditional Diffusion Enhancement
 
-> **Concept-Level Guidance for Unconditional Diffusion Models via H-Space Patching**
-
 This repository implements the full research pipeline for **Unconditional Diffusion Enhancement** — a method that enables semantic control over unconditional diffusion models (DDPMs) by extracting concept-specific direction vectors from the model's internal h-space (the bottleneck activation of the U-Net architecture) and applying them as targeted perturbations during the reverse generative process.
 ![alt text](<readme_images/Screenshot from 2026-05-01 00-07-28.png>)
+
 Unlike classifier-free guidance (CFG), which requires conditional training, ADG operates entirely **post-hoc** on frozen, pre-trained unconditional models. The approach extracts a *Difference of Means (DoM)* vector that represents a semantic concept (e.g., "sharp vs. blur," "smiling vs. not smiling") and applies it as a directional patch to the mid-block activation during inference, enabling attribute-specific image manipulation without retraining.
 ![alt text](<readme_images/Screenshot from 2026-04-30 23-52-21.png>)
 
