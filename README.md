@@ -1,173 +1,104 @@
-# Unconditional Diffusion Enhancement
+# Guidance for Low-Level Perceptual Editing in Unconditional Diffusion Models
 
-This repository implements the full research pipeline for **Unconditional Diffusion Enhancement** — a method that enables semantic control over unconditional diffusion models (DDPMs) by extracting concept-specific direction vectors from the model's internal h-space (the bottleneck activation of the U-Net architecture) and applying them as targeted perturbations during the reverse generative process.
-![alt text](<readme_images/Screenshot from 2026-05-01 00-07-28.png>)
+**Generative Models for Computer Vision Workshop @ CVPR 2026**
 
-Unlike classifier-free guidance (CFG), which requires conditional training, ADG operates entirely **post-hoc** on frozen, pre-trained unconditional models. The approach extracts a *Difference of Means (DoM)* vector that represents a semantic concept (e.g., "sharp vs. blur," "smiling vs. not smiling") and applies it as a directional patch to the mid-block activation during inference, enabling attribute-specific image manipulation without retraining.
-![alt text](<readme_images/Screenshot from 2026-04-30 23-52-21.png>)
+[![arXiv](https://img.shields.io/badge/arXiv-2605.31162-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2605.31162)
+[![GitHub](https://img.shields.io/badge/GitHub-Repo-181717?logo=github&logoColor=white)](https://github.com/dsgiitr/uncond-diffusion-enhancement)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Repository Structure
+> [!NOTE]
+> This repository contains the official PyTorch implementation for our CVPR 2026 Workshop paper. We provide the complete code for inference-time perceptual editing of unconditional diffusion models without any model retraining, along with scripts to extract h-space degradation concepts.
 
-```
-.
-├── README.md                      # This file
-├── requirements.txt               # Python dependencies
-├── .gitignore                     # Only .py files are tracked
-│
-├── config/                        # Centralized configuration
-│   └── config.py                  # DDPMConfig & ExtractionConfig dataclasses
-│
-├── data/                          # Dataset utilities
-│   ├── dataset_utils.py           # Unified dataset loading (CelebA-HQ, LSUN Church)
-│   └── build_dataset.py           # HuggingFace dataset builder with attribute labels
-│
-├── extraction/                    # Concept vector extraction
-│   ├── get_dom_vector.py          # Core DoM vector extractor (streaming mean)
-│   ├── main_extractor.py          # Batch extraction orchestrator
-│   └── vector_extraction/
-│       ├── extract_dom_vector.py  # DoM extraction with PCA/covariance analysis
-│       └── extract_w_vector.py    # W-vector extraction variant
-│
-├── transformations/               # Image transformation modules
-│   ├── transform_sharp_blur.py
-│   ├── transform_gray_oversat.py
-│   ├── transform_high_low_contrast.py
-│   ├── transform_high_low_brightness.py
-│   ├── transform_warm_cool.py
-│   ├── transform_noisy_clean.py
-│   ├── transform_underexposed_exposed.py
-│   ├── transform_high_low_texture.py
-│   ├── transform_jpeg_uncompressed.py
-│   ├── transform_flat_dramatic_lighting.py
-│   ├── transform_hue_natural.py
-│   ├── transform_oversmoothed_natural.py
-│   └── generate_examples.py       # Visual examples of all transformations
-│
-├── generation/                    # Unconditional DDPM generation pipeline
-│   ├── main.py                    # CLI entry point: baseline + patched + CFG comparison
-│   ├── pipeline.py                # Core: scheduler setup, noise generation, run_all()
-│   ├── hooks.py                   # HSpacePatcher: forward hook for mid-block patching
-│   ├── visualize.py               # 1×3 subplot comparison renderer
-│   └── generate_triplet_dataset.py # Bulk triplet dataset generation
-│
-├── analysis/                      # Experimental analysis scripts
-│   ├── taylor_decomposition.py    # Taylor residual decomposition (ε₀, Jv, R≥2)
-│   ├── combined_entropy_taylor.py # Attention entropy + Taylor analysis (combined)
-│   ├── norm_analysis.py           # Normalized L2 distance & noise norm experiments
-│   └── cka/                       # CKA representational similarity
-│       ├── cka_core.py            # Linear/RBF CKA computation
-│       ├── compute_cka.py         # Standard CKA across layers
-│       ├── compute_cka_generative.py          # CKA during generative passes
-│       ├── compute_cka_generative_guided.py   # CKA with h-space guidance
-│       ├── compute_global_means.py # Per-layer global mean computation
-│       ├── data.py                # CelebA-HQ data loading for CKA
-│       ├── hooks.py               # MultiLayerHook: capture all U-Net activations
-│       ├── visualize.py           # CKA heatmap rendering
-│       ├── test_cka.py            # Correctness tests for CKA computation
-│       └── attention_entropy/
-│           └── compute_attention_entropy.py
-│
-├── evaluation/                    # Quality & fidelity evaluation
-│   ├── evaluate_clip.py           # CLIP score (semantic alignment with text prompts)
-│   ├── evaluate_fid_folders.py    # FID from image folders
-│   ├── evaluate_fid_npz.py        # FID from precomputed .npz statistics
-│   ├── evaluate_fid_tf_folders.py # FID using TensorFlow InceptionV3
-│   ├── evaluate_brisque.py        # BRISQUE (blind image quality)
-│   ├── evaluate_contrast.py       # Contrast metrics
-│   ├── evaluate_lpips.py          # LPIPS (perceptual similarity)
-│   ├── evaluate_luminance.py      # Luminance analysis
-│   ├── evaluate_niqe.py           # NIQE (naturalness)
-│   ├── evaluate_saturation.py     # Color saturation metrics
-│   ├── evaluate_sharpness.py      # Sharpness (Laplacian variance)
-│   └── arcface_dir_similarity.py  # ArcFace identity preservation
-│
-├── semantic_analysis/             # Semantic concept separability
-│   ├── run_semantic_concept_experiment.py  # Full experiment orchestrator
-│   ├── extract_attribute_activations.py   # H-space activation caching
-│   ├── eval_linear_probe.py       # Linear probe classifier
-│   ├── eval_svm.py                # SVM separability
-│   ├── eval_lda.py                # LDA discriminant analysis
-│   └── eval_per_timestep.py       # Per-timestep separability sweep
-│
-├── timestep_analysis/             # Timestep-specific evaluations
-│   ├── optimal_timestep_analysis.py       # Find optimal extraction timestep
-│   ├── run_attribute_timestep_experiment.py # Multi-timestep experiment runner
-│   ├── eval_lda_eigenvalue.py     # LDA eigenvalue analysis
-│   ├── eval_svm_margin.py         # SVM margin analysis
-│   ├── svm_consolidator.py        # Consolidate SVM results
-│   └── train_linear_probe.py      # Train timestep-specific probes
-│
-└── utils/                         # Shared utilities
-    ├── cov_analysis.py            # Covariance matrix analysis
-    ├── visualize_samples.py       # Sample grid visualization
-    ├── patch_env.py               # Environment patching for compatibility
-    └── graphs.py                  # Plotting helpers
-```
+## Motivation
+
+Unconditional diffusion models have emerged as a powerful state-of-the-art paradigm for image synthesis, yet steering them toward aesthetically enhanced outputs for **low-level perceptual editing** (e.g., sharpness, contrast, saturation) remains largely unexplored. 
+
+While the U-Net bottleneck (h-space) has proven to be a semantically dense latent space for linear manipulation, we show that **h-space patching—the dominant paradigm for training-free diffusion editing—systematically fails** when applied to global, low-level transformations required for aesthetic refinement.
+
+We identify the root cause of this failure as **destructive interference** in the decoder of the U-Net, and propose a unified inference-time editing paradigm to overcome it.
+
+> [!IMPORTANT]
+> The result is a **generalized, training-free framework** that operates on low-level features by combining bottleneck patching with classifier-free guidance. This actively guides the generative sampling trajectory *away* from the degraded manifold, producing consistently improved images without any model retraining.
+
+## Method Overview
+
+<p align="center">
+  <img src="images/architecture.png" width="100%" alt="Method Overview Diagram">
+</p>
+
+Our framework bypasses decoder collapse by routing the intermediate representations through a dual-path forward architecture at each sampler step:
+
+**(1) Normal Forward Pass.** The noisy latent $x_t$ undergoes standard unconstrained generation, outputting the default noise prediction $\epsilon_\theta(x_t)$.
+
+**(2) Patched Forward Pass.** We isolate the target low-level degradation concept vector $\Delta h_c$ within the U-Net bottleneck. Instead of replacing the representation directly, we subtract a scaled factor of the concept to shift the bottleneck state into a degraded manifold:
+
+$$\Delta \hat{h}_c = h_t - \eta \cdot \Delta h_c$$
+
+This yields a structurally degraded reference noise prediction $\epsilon_\theta(x_t, \Delta \hat{h}_c)$.
+
+**(3) Negative Classifier-Free Guidance.** We treat the patched output as our negative baseline conditions. By projecting the trajectory *away* from this degraded space, the model dynamically sharpens features and refines contrast:
+
+$$\tilde{\epsilon}_\theta(x_t, \Delta \hat{h}_c) = \epsilon_\theta(x_t) + w \Big(\epsilon_\theta(x_t) - \epsilon_\theta(x_t, \Delta \hat{h}_c)\Big)$$
+
+where $w$ represents the guidance scale factor. The final guided vector is then fed back into the Sampler Step.
+
+## Examples
+
+> [!TIP]
+> Our method successfully recovers sharp structural lines, optimized illumination, and vivid micro-details without shifting the underlying facial identity or injecting synthetic artifacts.
+
+<p align="center">
+  <img src="images/comparison.png" width="90%" alt="Visual Comparisons Baseline vs Ours">
+</p>
 
 ---
 
-## Folder Details
+## Main Results
 
-### `config/`
-Centralized configuration using Python `dataclass` objects. `DDPMConfig` holds model ID, scheduler type, inference steps, CFG scale, v-scale, patching mode, and generation parameters. `ExtractionConfig` holds dataset paths, concept definitions, and extraction hyperparameters.
+Quantitative evaluation demonstrating performance across perceptual adjustment directions. Relative changes ($\%\Delta$) for FID are computed with respect to the baseline (lower is better). For domain-specific quality metrics (Laplacian variance, Mean S-channel, and RMS contrast), higher values denote stronger feature enhancement.
 
-### `data/`
-Dataset loading utilities supporting **CelebA-HQ** (with categorical attribute labels like *Smiling*, *Male*, *Eyeglasses*) and **LSUN Church** (via LMDB). Handles normalization, resizing, and profile-specific preprocessing.
+| Direction | Metric | Baseline | Standard Patching | Ours |
+| :--- | :--- | :---: | :---: | :---: |
+| **Sharpness** | FID ($\%\Delta$) | 25.43 | +3.54% | **-6.07%** |
+| | Laplacian variance | 143.77 | 212.72 | **386.45** |
+| **Saturation** | FID ($\%\Delta$) | 25.43 | +7.03% | **-7.76%** |
+| | Mean S-channel | 0.43 | 0.44 | **0.47** |
+| **Contrast** | FID ($\%\Delta$) | 25.43 | +4.85% | **-13.90%** |
+| | RMS contrast | 0.18 | 0.17 | **0.21** |
 
-### `extraction/`
-The core concept vector extraction pipeline. `get_dom_vector.py` computes the **Difference of Means (DoM)** vector via streaming mean computation — it registers a forward hook on the U-Net's `mid_block`, runs the dataset through the model at a specific timestep, and accumulates class-conditional means. Supports both **attribute mode** (CelebA-HQ binary labels) and **transformation mode** (paired image transformations like sharp/blur).
+*Note: Standard h-space patching introduces structural artifacts that degrade FID performance, whereas our negative-guidance framework achieves substantial distribution alignment improvements alongside noticeable perceptual gains.*
 
-### `transformations/`
-Twelve self-contained transformation modules, each implementing a `get_transforms() → (plus_tx, minus_tx)` interface. These define the positive and negative poles of a visual concept. Transformations include sharpness, contrast, brightness, color temperature, noise level, texture detail, JPEG compression, lighting style, hue shift, and smoothing.
+---
 
-### `generation/`
-The unconditional DDPM generation pipeline. `main.py` is the CLI entry point that runs three generation modes from identical initial noise: **Baseline** (no patching), **Patched** (single-pass h-space patching), and **CFG** (dual-pass h-space classifier-free guidance). `pipeline.py` contains the core logic for scheduler construction, noise generation, and the three-mode execution. `hooks.py` implements `HSpacePatcher` which registers a PyTorch forward hook on the target layer.
+## Analysis & Ablation
 
-### `analysis/`
-Experimental analysis scripts for understanding the mechanism:
+### Destructive Interference in the Decoder
 
-- **`taylor_decomposition.py`** — Decomposes the effect of h-space patching into first-order (Jacobian-vector product) and higher-order residual terms. Identifies *when* and *where* linearization of the decoder fails.
-- **`combined_entropy_taylor.py`** — Combined attention entropy and Taylor residual analysis. Measures how attention distributions change under patching.
-- **`norm_analysis.py`** — Tracks normalized L2 distance from the training distribution and predicted noise norms across guidance scales.
-- **`cka/`** — CKA (Centered Kernel Alignment) pipeline for measuring representational similarity across layers and timesteps.
+We demonstrate that classical bottleneck patching fails for low-level perceptual tasks because direct intervention in h-space causes structural collapse in the decoder when propagating global photometric transformations. By offloading the intervention to the CFG mechanism, our method preserves structural integrity while achieving the desired perceptual shift.
 
-### `evaluation/`
-Standardized evaluation metrics:
+### Time-Dependent Guidance Schedules
 
-| Script | Metric | Purpose |
-|--------|--------|---------|
-| `evaluate_clip.py` | CLIP Score | Semantic alignment with text prompts |
-| `evaluate_fid_*.py` | FID / sFID | Distributional quality (Fréchet Inception Distance) |
-| `evaluate_brisque.py` | BRISQUE | Blind image quality assessment |
-| `evaluate_niqe.py` | NIQE | Naturalness (no-reference) |
-| `evaluate_lpips.py` | LPIPS | Perceptual similarity |
-| `evaluate_sharpness.py` | Laplacian Variance | Edge detail preservation |
-| `evaluate_contrast.py` | RMS Contrast | Dynamic range |
-| `evaluate_luminance.py` | Mean Luminance | Brightness consistency |
-| `evaluate_saturation.py` | Mean Saturation | Color vibrancy |
-| `arcface_dir_similarity.py` | ArcFace Cosine Sim | Identity preservation |
+To mitigate the computational cost of dual forward passes required by CFG, we experimented with time-dependent guidance schedules during the reverse diffusion process. Applying our guided patching exclusively during specific intervals is sufficient to anchor the perceptual enhancements, significantly decreasing inference time without sacrificing aesthetic quality.
 
-### `semantic_analysis/`
-Multi-timestep concept separability experiments. Extracts h-space activations at various timesteps and trains classifiers (Linear Probe, SVM, LDA) to measure how *separable* semantic concepts are in the representation space at each point in the diffusion trajectory.
+### Semantic Generalization & Transferability
 
-### `timestep_analysis/`
-Timestep-specific analysis to find the optimal extraction timestep for each concept. Evaluates LDA eigenvalues, SVM margins, and linear probe accuracy across the full timestep range.
-
-### `utils/`
-Shared utility functions: covariance analysis, sample visualization, environment patching, and plotting helpers.
+Because our inference method builds upon generalized h-space manipulations, it supports both low-level perceptual enhancements and broader semantic concept editing. We perform ablations showing our method's strong transferability across datasets.
 
 ---
 
 ## Quick Start
 
-### Installation
+### 1. Installation
 
 ```bash
+git clone [https://github.com/dsgiitr/uncond-diffusion-enhancement.git](https://github.com/dsgiitr/uncond-diffusion-enhancement.git)
+cd uncond-diffusion-enhancement
 pip install -r requirements.txt
-```
+ ```
 
-### 1. Extract a Concept Vector
+## Extract a Concept Vector
 
+###You can extract concept vectors using either transformation-based settings or discrete attribute configurations:
 ```bash
 # Transformation-based (e.g., sharp vs. blur)
 python extraction/get_dom_vector.py \
@@ -186,8 +117,9 @@ python extraction/get_dom_vector.py \
     --output_dir vectors
 ```
 
-### 2. Generate Guided Images
 
+##Generate Guided Images
+### Pass the extracted vector file along with your desired vector scale and negative guidance parameter thresholds to run generation:
 ```bash
 python generation/main.py \
     --v-path vectors/sharp_vs_blur_dom_t20.pt \
@@ -197,8 +129,7 @@ python generation/main.py \
     --seed 42 \
     --output-dir outputs/sharp_guided
 ```
-
-### 3. Run Evaluation
+##Run Evaluation
 
 ```bash
 # CLIP score evaluation
@@ -213,9 +144,9 @@ python evaluation/evaluate_fid_folders.py \
     --gen-dir path/to/generated/images
 ```
 
-### 4. Run Analysis Experiments
-
-```bash
+## Run Analysis Experiments
+###Run Taylor decomposition evaluations or combined feature landscape analysis to study activation trajectories:
+ ``` bash
 # Taylor decomposition
 python analysis/taylor_decomposition.py
 
@@ -224,13 +155,17 @@ python analysis/combined_entropy_taylor.py \
     --run_entropy --run_taylor \
     --batch_size 128 --taylor_batch_size 32
 ```
-
----
-
-## Requirements
-
-- Python ≥ 3.9
-- PyTorch ≥ 2.0 (CUDA recommended)
-- Key dependencies: `diffusers`, `transformers`, `datasets`, `pyiqa`, `scikit-learn`, `opencv-python`
-
-See `requirements.txt` for the full list.
+ 
+## Citation 
+### If you find this code or our paper useful in your research, please cite:
+```bash
+@misc{modi2026guidancelowlevelperceptualediting,
+      title={Guidance for Low-Level Perceptual Editing in Unconditional Diffusion Models}, 
+      author={Shreyansh Modi and Akshat Tomar and Aarush Aggarwal},
+      year={2026},
+      eprint={2605.31162},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2605.31162}, 
+}
+ ```
