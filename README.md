@@ -98,7 +98,7 @@ pip install -r requirements.txt
 
 ## Extract a Concept Vector
 
-###You can extract concept vectors using either transformation-based settings or discrete attribute configurations:
+### You can extract concept vectors using either transformation-based settings or discrete attribute configurations:
 ```bash
 # Transformation-based (e.g., sharp vs. blur)
 python extraction/get_dom_vector.py \
@@ -118,7 +118,7 @@ python extraction/get_dom_vector.py \
 ```
 
 
-##Generate Guided Images
+## Generate Guided Images
 ### Pass the extracted vector file along with your desired vector scale and negative guidance parameter thresholds to run generation:
 ```bash
 python generation/main.py \
@@ -129,7 +129,7 @@ python generation/main.py \
     --seed 42 \
     --output-dir outputs/sharp_guided
 ```
-##Run Evaluation
+## Run Evaluation
 
 ```bash
 # CLIP score evaluation
@@ -145,7 +145,7 @@ python evaluation/evaluate_fid_folders.py \
 ```
 
 ## Run Analysis Experiments
-###Run Taylor decomposition evaluations or combined feature landscape analysis to study activation trajectories:
+###  Run Taylor decomposition evaluations or combined feature landscape analysis to study activation trajectories:
  ``` bash
 # Taylor decomposition
 python analysis/taylor_decomposition.py
